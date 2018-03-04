@@ -187,7 +187,7 @@ class Model(object):
         
         num_samples = inputs.shape[1] # time_steps
         for step in range(num_samples):
-            input = inputs[:,step,:].reshape([1,1])
+            input = inputs[:,step,:].reshape([1,-1])
             feed_dict = {self.inputs: input}
             output = self.sess.run(self.out_ops, feed_dict=feed_dict)[0] # ignore push ops
             value = np.argmax(output[0, :])
