@@ -81,14 +81,13 @@ class Model(object):
     def _train(self):
         batch_x, batch_y = self.ad_train.getBatchTrain(True, self.num_time_samples, self.batch_size)
         batch_x = batch_x.reshape((self.batch_size, self.num_time_samples, 10))#self.num_input))        
-        batch_x = batch_x[:,:,0]#.reshape((self.batch_size, self.num_time_samples,-1))
-        
+        batch_x_0 = batch_x[:,:,0]#.reshape((self.batch_size, self.num_time_samples,-1))
         bins = np.linspace(-1, 1, 256)
         # Quantize inputs.
                 
         inputs_batch, targets_batch = [],[]
         for batch in range(self.batch_size):
-            x = batch_x[batch]
+            x = batch_x_0[batch]
             y = batch_y[batch]
             inputs = np.digitize(x, bins, right=False) - 1
             inputs = bins[inputs][None, :, None]
@@ -99,6 +98,7 @@ class Model(object):
             targets_batch.append(targets)
 
         inputs_batch = np.vstack(inputs_batch)
+        inputs_batch = np.concatenate((inputs_batch, batch_x[:,:,1:]), axis=2)
         targets_batch = np.vstack(targets_batch)
 
         # save for test
@@ -137,7 +137,7 @@ class Model(object):
                 
     def generate_init(self, batch_size=1):
         self.bins = np.linspace(-1, 1, self.num_classes)
-        input_size = 1 #self.num_time_samples
+        input_size = self.num_channels #self.num_time_samples
         inputs = tf.placeholder(tf.float32, [batch_size, input_size],
                                 name='inputs')
 
@@ -153,7 +153,7 @@ class Model(object):
                 rate = 2**i
                 name = 'b{}-l{}'.format(b, i)
                 if count == 0:
-                    state_size = 1
+                    state_size = self.num_channels
                 else:
                     state_size = self.num_hidden
                     

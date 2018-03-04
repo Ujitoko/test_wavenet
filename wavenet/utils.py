@@ -55,8 +55,9 @@ class AccelerationDataset():
         self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0)]
         
     def len(self):
-        #return len(self.files_z)
-        return 10
+        return len(self.files_z)
+        #return 10
+    
 
     def getitem(self, idx):
         # wave
