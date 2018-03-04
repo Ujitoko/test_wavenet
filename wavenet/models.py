@@ -121,11 +121,11 @@ class Model(object):
             i += 1                        
             cost = self._train()
             
-            if cost < 1e-1:
+            if cost < 1e-1 or i > 100000:
                 terminal = True
             losses.append(cost)
             
-            if i % 50 == 0:
+            if i % 1000 == 0:
                 self.generate_run(self.test_inputs[0,:,:][np.newaxis,:,:], i)
                 print(cost)
 

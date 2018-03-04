@@ -56,7 +56,7 @@ class AccelerationDataset():
         
     def len(self):
         #return len(self.files_z)
-        return 10
+        return 1
 
     def getitem(self, idx):
         # wave
