@@ -52,7 +52,8 @@ class AccelerationDataset():
     def __init__(self, root_dir):
         self.root_dir = root_dir
         self.files = os.listdir(self.root_dir)
-        self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0)]
+        #self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0)]
+        self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0) and (file.find("train1") > 0)]
         
     def len(self):
         return len(self.files_z)
