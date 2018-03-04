@@ -55,7 +55,7 @@ class Model(object):
 
         self.config = tf.ConfigProto(
             gpu_options=tf.GPUOptions(
-                visible_device_list="0"
+                visible_device_list=self.gpu_num
             )
         )
         sess = tf.Session(config=self.config)
