@@ -59,7 +59,16 @@ class Model(object):
             )
         )
         sess = tf.Session(config=self.config)
-        sess.run(tf.global_variables_initializer())
+        self.saver = tf.train.Saver(max_to_keep=None)
+            
+        ckpt = tf.train.get_checkpoint_state("./ckpt_" + self.model_name + "/")
+        if ckpt:
+            last_model = ckpt.model_checkpoint_path
+            self.saver.restore(sess, last_model)
+            print("load: "+last_model)
+        else:
+            print("init")
+            sess.run(tf.global_variables_initializer())
         self.inputs_ph = inputs
         self.targets_ph = targets
         self.outputs = outputs
@@ -68,7 +77,6 @@ class Model(object):
         self.cost = cost
         self.train_step = train_step
         self.sess = sess
-
         
         # dataset
         self.ad_train = AccelerationDataset("acc_dataset_selected/train")
@@ -104,7 +112,7 @@ class Model(object):
         # save for test
         if self.count == 0:
             self.test_inputs = inputs_batch
-            self.test_targets = targets_batch
+            self.test_targets = np.array(self.bins[targets_batch])
             self.count += 1
 
         feed_dict = {self.inputs_ph: inputs_batch, self.targets_ph: targets_batch}
@@ -121,19 +129,36 @@ class Model(object):
             i += 1                        
             cost = self._train()
             
-            if cost < 1e-1 or i > 100000:
+            if cost < 1e-1 or i > 5000000:
+                path = "ckpt_" + self.model_name
+                if not os.path.isdir(path):
+                    os.makedirs(path)
+                self.saver.save(self.sess, path + "/" + str(i) + ".ckpt")       
                 terminal = True
             losses.append(cost)
             
-            if i % 1000 == 0:
-                self.generate_run(self.test_inputs[0,:,:][np.newaxis,:,:], i)
+            if i % 100000 == 0:
+                generated = self.generate_run(self.test_inputs[0,:,:][np.newaxis,:,:], i)
                 print(cost)
 
+                #show_wave(predictions_[0, :], dirname=self.model_name, filename="gen_"+str(i))
+                
+                waves = {"test":self.test_targets[0] , "generated":generated[0,:]}
+                print("save_test_wave")
+                show_test_wav(waves, dirname=self.model_name, filename="wave_" + str(i))
+                
                 show_wave(losses, dirname=self.model_name, filename="losses_" + str(i), y_lim=7)
                 #plt.plot(losses)
                 #plt.ylim(0, 7)
                 #plt.show()
+
                 
+            if i % 100000 == 0:
+                path = "ckpt_" + self.model_name
+                if not os.path.isdir(path):
+                    os.makedirs(path)
+                self.saver.save(self.sess, path + "/" + str(i) + ".ckpt")
+            
                 
     def generate_init(self, batch_size=1):
         self.bins = np.linspace(-1, 1, self.num_classes)
@@ -198,14 +223,8 @@ class Model(object):
 
         #if step % 10000 == 0:
         predictions_ = np.concatenate(predictions, axis=1)
-        show_wave(predictions_[0, :], dirname=self.model_name, filename="gen_"+str(i))
-        #plt.plot(predictions_[0, :], label='pred')
-        #plt.legend()
-        #plt.xlabel('samples from start')
-        #plt.ylabel('signal')
-        #plt.show()
+        #show_wave(predictions_[0, :], dirname=self.model_name, filename="gen_"+str(i))
 
-        predictions_ = np.concatenate(predictions, axis=1)
         return predictions_        
         
         

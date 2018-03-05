@@ -158,3 +158,22 @@ def show_wave(wave, dirname, filename, y_lim=0):
     plt.savefig(os.path.join(dirname,filename + '.png'))
     plt.close()
 
+def show_test_wav(waves, dirname, filename, y_lim=0):
+    if os.path.isdir(dirname) == False:
+        os.mkdir(dirname)
+    
+    plt.figure(figsize=(30,10))
+    plt.title('wave files', fontsize=30)
+    plt.xlabel('x', fontsize=20)
+    plt.ylabel('y', fontsize=20)
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
+    if y_lim != 0:
+        plt.ylim(0, y_lim)
+    
+    plt.plot(waves["test"], color='r',linewidth=1.0, label="test")
+    plt.plot(waves["generated"], color='b', linewidth=1.0, label="generated")
+
+    plt.legend()
+    plt.savefig(os.path.join(dirname, filename + '.png'))
+    plt.close()
