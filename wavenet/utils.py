@@ -49,11 +49,11 @@ Selected_Acceleration_Label = {
 
 class AccelerationDataset():
     
-    def __init__(self, root_dir):
+    def __init__(self, root_dir, name):
         self.root_dir = root_dir
         self.files = os.listdir(self.root_dir)
         #self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0)]
-        self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0) and (file.find("train1") > 0)]
+        self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0) and (file.find(name) > 0)]
         
     def len(self):
         return len(self.files_z)
@@ -154,7 +154,7 @@ def show_wave(wave, dirname, filename, y_lim=0):
     plt.yticks(fontsize=20)
     if y_lim != 0:
         plt.ylim(0, y_lim)
-    plt.plot(wave, color='r',linewidth=1.0)
+    plt.plot(wave, color='r',linewidth=1.0, alpha=0.5)
     plt.savefig(os.path.join(dirname,filename + '.png'))
     plt.close()
 
@@ -171,8 +171,8 @@ def show_test_wav(waves, dirname, filename, y_lim=0):
     if y_lim != 0:
         plt.ylim(0, y_lim)
     
-    plt.plot(waves["test"], color='r',linewidth=1.0, label="test")
-    plt.plot(waves["generated"], color='b', linewidth=1.0, label="generated")
+    plt.plot(waves["test"], color='r',linewidth=1.0, label="test", alpha=0.3)
+    plt.plot(waves["generated"], color='b', linewidth=1.0, label="generated",alpha=0.3)
 
     plt.legend()
     plt.savefig(os.path.join(dirname, filename + '.png'))

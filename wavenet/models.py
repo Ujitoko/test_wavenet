@@ -59,7 +59,7 @@ class Model(object):
             )
         )
         sess = tf.Session(config=self.config)
-        self.saver = tf.train.Saver(max_to_keep=None)
+        self.saver = tf.train.Saver(max_to_keep=3)
             
         ckpt = tf.train.get_checkpoint_state("./ckpt_" + self.model_name + "/")
         if ckpt:
@@ -79,11 +79,38 @@ class Model(object):
         self.sess = sess
         
         # dataset
-        self.ad_train = AccelerationDataset("acc_dataset_selected/train")
+        self.ad_train = AccelerationDataset("acc_dataset_selected/train", "train1")
+        self.ad_test = AccelerationDataset("acc_dataset_selected/test", "test1")
+        
         self.batch_size = 2
         
         self.generate_init()
         self.count = 0
+
+        batch_x, batch_y = self.ad_test.getBatchTrain(True, self.num_time_samples, self.batch_size)
+        batch_x = batch_x.reshape((self.batch_size, self.num_time_samples, 10))#self.num_input))        
+        batch_x_0 = batch_x[:,:,0]#.reshape((self.batch_size, self.num_time_samples,-1))
+        bins = np.linspace(-1, 1, 256)
+        # Quantize inputs.
+                
+        inputs_batch, targets_batch = [],[]
+        for batch in range(self.batch_size):
+            x = batch_x_0[batch]
+            y = batch_y[batch]
+            inputs = np.digitize(x, bins, right=False) - 1
+            inputs = bins[inputs][None, :, None]
+            inputs_batch.append(inputs)
+        
+            # Encode targets as ints.
+            targets = (np.digitize(y, bins, right=False) - 1)[None, :]
+            targets_batch.append(targets)
+            
+        inputs_batch = np.vstack(inputs_batch)
+        inputs_batch = np.concatenate((inputs_batch, batch_x[:,:,1:]), axis=2)
+        targets_batch = np.vstack(targets_batch)
+
+        self.test_inputs = inputs_batch
+        self.test_targets = np.array(bins[targets_batch])
         
 
     def _train(self):
@@ -111,9 +138,10 @@ class Model(object):
 
         # save for test
         if self.count == 0:
-            self.test_inputs = inputs_batch
-            self.test_targets = np.array(self.bins[targets_batch])
+            self.train_inputs = inputs_batch
+            self.train_targets = np.array(self.bins[targets_batch])
             self.count += 1
+           
 
         feed_dict = {self.inputs_ph: inputs_batch, self.targets_ph: targets_batch}
         cost, _ = self.sess.run(
@@ -137,15 +165,15 @@ class Model(object):
                 terminal = True
             losses.append(cost)
             
-            if i % 100000 == 0:
-                generated = self.generate_run(self.test_inputs[0,:,:][np.newaxis,:,:], i)
+            if i % 10 == 0:
                 print(cost)
+                train_generated = self.generate_run(self.train_inputs[0,:,:][np.newaxis,:,:], i)
+                waves = {"test":self.train_targets[0] , "generated":train_generated[0,:]}
+                show_test_wav(waves, dirname=self.model_name, filename="train_wave_" + str(i))
 
-                #show_wave(predictions_[0, :], dirname=self.model_name, filename="gen_"+str(i))
-                
-                waves = {"test":self.test_targets[0] , "generated":generated[0,:]}
-                print("save_test_wave")
-                show_test_wav(waves, dirname=self.model_name, filename="wave_" + str(i))
+                test_generated = self.generate_run(self.test_inputs[0,:,:][np.newaxis,:,:], i)
+                waves = {"test":self.test_targets[0] , "generated":test_generated[0,:]}
+                show_test_wav(waves, dirname=self.model_name, filename="test_wave_" + str(i))
                 
                 show_wave(losses, dirname=self.model_name, filename="losses_" + str(i), y_lim=7)
                 #plt.plot(losses)
