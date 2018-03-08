@@ -17,8 +17,8 @@ def make_batch(path):
     # data_f = np.sign(data_) * (np.log(1 + 255*np.abs(data_)) / np.log(1 + 255))
 
     bins = np.linspace(-1, 1, 256)
-    print(data_[0:-1].shape)
-    print(data_[1::].shape)
+    #print(data_[0:-1].shape)
+    #print(data_[1::].shape)
     # Quantize inputs.
     inputs = np.digitize(data_[0:-1], bins, right=False) - 1
     inputs = bins[inputs][None, :, None]
@@ -49,11 +49,14 @@ Selected_Acceleration_Label = {
 
 class AccelerationDataset():
     
-    def __init__(self, root_dir, name):
+    def __init__(self, root_dir, name, duration_for_test):
         self.root_dir = root_dir
         self.files = os.listdir(self.root_dir)
-        #self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0)]
-        self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0) and (file.find(name) > 0)]
+        self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0)]
+        #self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0) and (file.find(name) > 0)]
+        self.duration_for_test = duration_for_test
+        print(len(self.files_z))
+        #print(self.files_z)
         
     def len(self):
         return len(self.files_z)
@@ -90,14 +93,21 @@ class AccelerationDataset():
 
     
     def getBatchTrain(self, is_random, time_step, batch_size):
-        rand_batch_idx = np.random.randint(0, self.len(), size=batch_size)
+        if is_random == True:
+            rand_batch_idx = np.random.randint(0, self.len(), size=batch_size)
+        else:
+            rand_batch_idx = np.arange(0, self.len())
         #print(rand_batch_idx)
 
         batch_input = []
         batch_output = []
         for idx in rand_batch_idx:
             item = self.getitem(idx)
-            rand_time_start = 0#np.random.randint(0, item["wave"].shape[1] - time_step)
+            if is_random == True:
+                rand_time_start = np.random.randint(0, item["wave"].shape[1] - time_step -1 - self.duration_for_test)
+            else:
+                rand_time_start = item["wave"].shape[1] - self.duration_for_test - 1
+                
             #print(item["wave"].shape)
             wave_time_series = item["wave"][3,rand_time_start:rand_time_start+time_step][np.newaxis,:].transpose()
             one_hot = item["label_one_hot"]

@@ -9,7 +9,7 @@ import numpy as np
 
 class Model(object):
     def __init__(self,
-                 num_time_samples,
+                 num_time_samples=10000,
                  num_channels=1,
                  num_classes=256,
                  num_blocks=2,
@@ -26,6 +26,11 @@ class Model(object):
         self.num_hidden = num_hidden
         self.gpu_num = gpu_num
         self.model_name = model_name
+
+        self.iter_save_fig = 100000
+        self.iter_save_param = 100000
+        self.iter_calc_loss = 1000
+        self.iter_end_training = 5000000
         
         inputs = tf.placeholder(tf.float32,
                                 shape=(None, num_time_samples, num_channels))
@@ -79,22 +84,26 @@ class Model(object):
         self.sess = sess
         
         # dataset
-        self.ad_train = AccelerationDataset("acc_dataset_selected/train", "train1")
-        self.ad_test = AccelerationDataset("acc_dataset_selected/test", "test1")
+        self.ad_train = AccelerationDataset("acc_dataset_selected/train", "train10", 0)
+        self.ad_test = AccelerationDataset("acc_dataset_selected/test", "test10", self.num_time_samples)
         
         self.batch_size = 2
         
         self.generate_init()
         self.count = 0
 
-        batch_x, batch_y = self.ad_test.getBatchTrain(True, self.num_time_samples, self.batch_size)
-        batch_x = batch_x.reshape((self.batch_size, self.num_time_samples, 10))#self.num_input))        
+        #print(self.ad_train.shape)
+        #print(self.ad_test.shape)
+        batch_x, batch_y = self.ad_test.getBatchTrain(False, self.num_time_samples, self.batch_size)
+        batch_x = batch_x.reshape((-1, self.num_time_samples, 10))#self.num_input))        
         batch_x_0 = batch_x[:,:,0]#.reshape((self.batch_size, self.num_time_samples,-1))
         bins = np.linspace(-1, 1, 256)
+        print(batch_x.shape)
+        print(batch_y.shape)
         # Quantize inputs.
                 
         inputs_batch, targets_batch = [],[]
-        for batch in range(self.batch_size):
+        for batch in range(batch_x_0.shape[0]):
             x = batch_x_0[batch]
             y = batch_y[batch]
             inputs = np.digitize(x, bins, right=False) - 1
@@ -111,7 +120,8 @@ class Model(object):
 
         self.test_inputs = inputs_batch
         self.test_targets = np.array(bins[targets_batch])
-        
+        #print(self.test_inputs.shape)
+        #print(self.test_targets.shape)
 
     def _train(self):
         batch_x, batch_y = self.ad_train.getBatchTrain(True, self.num_time_samples, self.batch_size)
@@ -157,15 +167,25 @@ class Model(object):
             i += 1                        
             cost = self._train()
             
-            if cost < 1e-1 or i > 5000000:
+            if cost < 1e-1 or i > self.iter_end_training:
                 path = "ckpt_" + self.model_name
                 if not os.path.isdir(path):
                     os.makedirs(path)
                 self.saver.save(self.sess, path + "/" + str(i) + ".ckpt")       
                 terminal = True
             losses.append(cost)
-            
-            if i % 10 == 0:
+
+            if i % self.iter_calc_loss:
+                num_block = self.test_inputs.shape[0]//2
+                loss_local = []
+                for j in range(num_block):
+                    feed_dict = {self.inputs_ph: self.test_inputs[j*2:(j+1)*2], self.targets_ph: self.test_targets[j*2:(j+1)*2]}
+                    cost = self.sess.run(self.cost, feed_dict=feed_dict)
+                    loss_local.append(cost)
+                
+                losses.append(np.mean(loss_local))
+                    
+            if i % self.iter_save_fig == 0:
                 print(cost)
                 train_generated = self.generate_run(self.train_inputs[0,:,:][np.newaxis,:,:], i)
                 waves = {"test":self.train_targets[0] , "generated":train_generated[0,:]}
@@ -176,12 +196,8 @@ class Model(object):
                 show_test_wav(waves, dirname=self.model_name, filename="test_wave_" + str(i))
                 
                 show_wave(losses, dirname=self.model_name, filename="losses_" + str(i), y_lim=7)
-                #plt.plot(losses)
-                #plt.ylim(0, 7)
-                #plt.show()
-
                 
-            if i % 100000 == 0:
+            if i % self.iter_save_param == 0:
                 path = "ckpt_" + self.model_name
                 if not os.path.isdir(path):
                     os.makedirs(path)
