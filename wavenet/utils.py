@@ -52,15 +52,14 @@ class AccelerationDataset():
     def __init__(self, root_dir, name, duration_for_test):
         self.root_dir = root_dir
         self.files = os.listdir(self.root_dir)
-        self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0)]
-        #self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0) and (file.find(name) > 0)]
+        self.files_z = [file for file in self.files if (file.find("_Z_") > 0) and (file.find("acc") > 0) and (name in file)]
         self.duration_for_test = duration_for_test
         print(len(self.files_z))
         #print(self.files_z)
         
     def len(self):
         return len(self.files_z)
-        #return 10
+        #return 1
     
 
     def getitem(self, idx):
@@ -112,7 +111,8 @@ class AccelerationDataset():
             wave_time_series = item["wave"][3,rand_time_start:rand_time_start+time_step][np.newaxis,:].transpose()
             one_hot = item["label_one_hot"]
             one_hot_time_series = np.repeat(one_hot, time_step, axis=0)
-
+            #print(one_hot_time_series)
+            
             input = np.concatenate((wave_time_series, one_hot_time_series), axis=1)
             #print(input.shape)
             batch_input.append(input)

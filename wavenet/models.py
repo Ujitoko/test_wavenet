@@ -15,6 +15,7 @@ class Model(object):
                  num_blocks=2,
                  num_layers=14,
                  num_hidden=128,
+                 batch_size=2,
                  gpu_num = "0",
                  model_name = "default_name"):
         
@@ -26,10 +27,11 @@ class Model(object):
         self.num_hidden = num_hidden
         self.gpu_num = gpu_num
         self.model_name = model_name
+        self.batch_size = batch_size
 
-        self.iter_save_fig = 100000
-        self.iter_save_param = 100000
-        self.iter_calc_loss = 1000
+        self.iter_save_fig = 2500
+        self.iter_save_param = 5000
+        self.iter_calc_loss = 2500
         self.iter_end_training = 5000000
         
         inputs = tf.placeholder(tf.float32,
@@ -87,7 +89,7 @@ class Model(object):
         self.ad_train = AccelerationDataset("acc_dataset_selected/train", "train10", 0)
         self.ad_test = AccelerationDataset("acc_dataset_selected/test", "test10", self.num_time_samples)
         
-        self.batch_size = 2
+
         
         self.generate_init()
         self.count = 0
@@ -98,8 +100,8 @@ class Model(object):
         batch_x = batch_x.reshape((-1, self.num_time_samples, 10))#self.num_input))        
         batch_x_0 = batch_x[:,:,0]#.reshape((self.batch_size, self.num_time_samples,-1))
         bins = np.linspace(-1, 1, 256)
-        print(batch_x.shape)
-        print(batch_y.shape)
+        #print(batch_x.shape)
+        #print(batch_y.shape)
         # Quantize inputs.
                 
         inputs_batch, targets_batch = [],[]
@@ -124,7 +126,13 @@ class Model(object):
         #print(self.test_targets.shape)
 
     def _train(self):
-        batch_x, batch_y = self.ad_train.getBatchTrain(True, self.num_time_samples, self.batch_size)
+        batch_x_from_train, batch_y_from_train = self.ad_train.getBatchTrain(True, self.num_time_samples, self.batch_size//2)
+        batch_x_from_test, batch_y_from_test = self.ad_test.getBatchTrain(True, self.num_time_samples, self.batch_size//2)
+        batch_x = np.vstack((batch_x_from_train, batch_x_from_test))
+        batch_y = np.vstack((batch_y_from_train, batch_y_from_test))
+        #print(batch_x.shape)
+        #print(batch_y.shape)
+        
         batch_x = batch_x.reshape((self.batch_size, self.num_time_samples, 10))#self.num_input))        
         batch_x_0 = batch_x[:,:,0]#.reshape((self.batch_size, self.num_time_samples,-1))
         bins = np.linspace(-1, 1, 256)
@@ -164,16 +172,18 @@ class Model(object):
         terminal = False
         i = 0
         while not terminal:
-            i += 1                        
+            i += 1
+
+            if i % 100 == 0:
+                print(i)
             cost = self._train()
             
-            if cost < 1e-1 or i > self.iter_end_training:
+            if i > self.iter_end_training:
                 path = "ckpt_" + self.model_name
                 if not os.path.isdir(path):
                     os.makedirs(path)
                 self.saver.save(self.sess, path + "/" + str(i) + ".ckpt")       
                 terminal = True
-            losses.append(cost)
 
             if i % self.iter_calc_loss:
                 num_block = self.test_inputs.shape[0]//2
@@ -182,8 +192,16 @@ class Model(object):
                     feed_dict = {self.inputs_ph: self.test_inputs[j*2:(j+1)*2], self.targets_ph: self.test_targets[j*2:(j+1)*2]}
                     cost = self.sess.run(self.cost, feed_dict=feed_dict)
                     loss_local.append(cost)
-                
-                losses.append(np.mean(loss_local))
+
+                cost_mean = np.mean(loss_local)
+                losses.append(cost_mean)
+
+                if cost_mean < 1e-2:
+                    path = "ckpt_" + self.model_name
+                    if not os.path.isdir(path):
+                        os.makedirs(path)
+                    self.saver.save(self.sess, path + "/" + str(i) + ".ckpt")       
+                    terminal = True
                     
             if i % self.iter_save_fig == 0:
                 print(cost)
@@ -195,7 +213,7 @@ class Model(object):
                 waves = {"test":self.test_targets[0] , "generated":test_generated[0,:]}
                 show_test_wav(waves, dirname=self.model_name, filename="test_wave_" + str(i))
                 
-                show_wave(losses, dirname=self.model_name, filename="losses_" + str(i), y_lim=7)
+                show_wave(losses, dirname=self.model_name, filename="losses_" + str(i), y_lim=15)
                 
             if i % self.iter_save_param == 0:
                 path = "ckpt_" + self.model_name
